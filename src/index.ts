@@ -1,7 +1,5 @@
-interface CacheStorage {
-  get(key: string): [Promise<any> | any, number]
-  set(key: string, value: Promise<any> | any, exp: number): void
-}
+import type { CacheStorage } from './storage'
+import { InMemoryStorage } from './storage'
 
 interface CacheKeyOptions {
   /**
@@ -16,7 +14,7 @@ interface CacheKeyManyOptions<S, R> extends CacheKeyOptions {
 }
 
 interface SingleCacher<T> {
-  (resolver: () => Promise<T>)
+  (resolver: () => Promise<T>): Promise<T>
 }
 
 /**
@@ -30,10 +28,15 @@ interface IterableCacher<S, R> {
   (source: S[], resolver: (missedSource: S[], missedKeys: string[]) => Promise<R[]>): Promise<R[]>
 }
 
+const isNil = (o: any): boolean => (typeof o === 'undefined' || o === null)
+
+
 export class Capsu {
 
-  constructor(private readonly storage: CacheStorage, private readonly prefix: string = '') {
-  }
+  constructor(
+    private readonly storage: CacheStorage = new InMemoryStorage(),
+    private readonly prefix: string = ''
+  ) {}
 
   public nested(prefix: string): Capsu {
     return new Capsu(this.storage, `${this.prefix}:${prefix}`)
@@ -41,14 +44,19 @@ export class Capsu {
 
   public of<T>(key: string, opts: CacheKeyOptions): SingleCacher<T> {
     const concreteKey = `${this.prefix}:${key}`
-    return (resolver) => {
+    return async (resolver) => {
       const cached = this.storage.get(concreteKey)
-      const now = new Date().getTime()
-      if (cached[1] > now) {
-        return cached[0]
+      if (!isNil(cached)) {
+        return cached
       }
-      const toCache = resolver()
-      this.storage.set(concreteKey, toCache, now + opts.ttl)
+      if (this.storage.canCachePromise()) {
+        const toCache = resolver()
+        this.storage.set(concreteKey, toCache, new Date().getTime() + opts.ttl)
+        return toCache
+      }
+      const toCache = await resolver()
+      this.storage.set(concreteKey, toCache, new Date().getTime() + opts.ttl)
+      return toCache
     }
   }
 
@@ -58,31 +66,60 @@ export class Capsu {
       const result = new Array<R>(source.length)
       const missedKeys: string[] = []
       const missedKeyToIndex: { [key: string]: number } = {}
-      const now = new Date().getTime()
 
       // determine if any key misses from cache?
-      const missedSources = source.filter((src, index) => {
+      const missedSources: S[] = []
+      for (let index = 0; index < source.length; index += 1) {
+        const src = source[index]
         const key = opts.cacheKey(src)
-        const cached = this.storage.get(`${concreteKeyPrefix}:${key}`)
-        if (cached[1] > now) {
-          result[index] = cached[0]
-          return false // cache hit, no need to load this. return false to remove from required output.
+        const cached = await this.storage.get(`${concreteKeyPrefix}:${key}`)
+        if (!isNil(cached)) {
+          result[index] = cached
+          continue
         }
-        missedKeys.push(key)
+        // missed key items
         missedKeyToIndex[key] = index
-        return true
-      })
+        missedKeys.push(key)
+        missedSources.push(src)
+      }
 
       // Perform resolve only missed items.
-      const toCacheList = await resolve(missedSources, missedKeys)
-      const exp = new Date().getTime() + opts.ttl
-      for (const toCache of toCacheList) {
-        const key = opts.resultKey(toCache)
-        this.storage.set(`${concreteKeyPrefix}:${key}`, toCache, exp)
+      if (missedSources.length > 0) {
+        let toCacheList: any = resolve(missedSources, missedKeys)
 
-        // try to maintain key index.
-        const index = missedKeyToIndex[key]
-        result[index] = toCache
+        // If this is cachable result.
+        if (toCacheList.then && this.storage.canCachePromise()) {
+          const exp = new Date().getTime() + opts.ttl
+          const toWait: Promise<void>[] = []
+          for (const src of missedSources) {
+            const key = opts.cacheKey(src)
+            const index = missedKeyToIndex[key]
+            const toCache = toCacheList
+              .then((results: any[]) => {
+                const matched = results.find((r: any) => (opts.resultKey(r) === `${key}`))
+                result[index] = matched
+                return matched
+              })
+            this.storage.set(
+              `${concreteKeyPrefix}:${key}`,
+              toCache,
+              exp,
+            )
+            toWait.push(toCache)
+          }
+          await Promise.all(toWait)
+        } else {
+          const resolved = await toCacheList
+          const exp = new Date().getTime() + opts.ttl
+          for (const toCache of resolved) {
+            const key = opts.resultKey(toCache)
+            this.storage.set(`${concreteKeyPrefix}:${key}`, toCache, exp)
+            
+            // try to maintain key index.
+            const index = missedKeyToIndex[key]
+            result[index] = toCache
+          }
+        }
       }
       return result
     }
