@@ -1,0 +1,29 @@
+{
+  "name": "capsu",
+  "version": "0.0.1",
+  "description": "Caching framework",
+  "main": "lib/cjs/index.js",
+  "module": "lib/esm/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.esm.json && tsc -p tsconfig.cjs.json",
+    "clean": "rm -rf node_modules/ && rm -rf libs/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/peatiscoding/capsu.git"
+  },
+  "keywords": [
+    "cache",
+    "capsu"
+  ],
+  "author": "Kittiphat S.",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/peatiscoding/capsu/issues"
+  },
+  "homepage": "https://github.com/peatiscoding/capsu#readme",
+  "devDependencies": {
+    "@types/node": "^14.14.6",
+    "typescript": "^3.8"
+  }
+}
