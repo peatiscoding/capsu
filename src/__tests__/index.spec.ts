@@ -1,5 +1,4 @@
 import { Capsu } from ".."
-import { InMemoryStorage } from "../storage"
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -28,6 +27,22 @@ describe('in-memory cache', () => {
       const third = await keyed(async () => 'hello')
       expect(first).toEqual(third)
       expect(first).toEqual('hello')
+    })
+
+    it('Can defined a callable interface using 3rd args', async () => {
+      const callMe = () => capsu.of('D', { ttl: 10 }, async () => {
+        await delay(1)
+        return Math.random()
+      })
+
+      const c1 = await callMe()
+      const c2 = await callMe()
+      expect(c1).toEqual(c2)
+
+      await delay(10)
+
+      const c3 = await callMe()
+      expect(c1).not.toEqual(c3)
     })
   })
 
@@ -69,6 +84,26 @@ describe('in-memory cache', () => {
         return missedSource.map((o) => o.toUpperCase())
       })
       expect(result4).toEqual(['A', 'F', 'B', 'C'])
+    })
+
+    it('Can define a callable interface using 4th arg', async () => {
+      let lastCached: string[] = []
+      const callMe = (source: string[]) => capsu.listOf('X', { ttl: 10, cacheKey: (o) => o, resultKey: (r) => `${r}`.toLowerCase() }, source, async (missed) => {
+        lastCached = [...missed]
+        return missed.map((k) => k.toUpperCase())
+      })
+
+      let res = await callMe(['a', 'b', 'c'])
+      expect(res).toEqual(['A', 'B', 'C'])
+      expect(lastCached).toEqual(['a', 'b', 'c'])
+
+      res = await callMe(['d', 'e', 'c'])
+      expect(res).toEqual(['D', 'E', 'C'])
+      expect(lastCached).toEqual(['d' ,'e'])
+
+      res = await callMe(['d', 'f', 'c'])
+      expect(res).toEqual(['D', 'F', 'C'])
+      expect(lastCached).toEqual(['f'])
     })
   })
 })

@@ -24,7 +24,7 @@ interface SingleCacher<T> {
  * @param opts 
  * @returns 
  */
-interface IterableCacher<S, R> {
+interface ListCacher<S, R> {
   (source: S[], resolver: (missedSource: S[], missedKeys: string[]) => Promise<R[]>): Promise<R[]>
 }
 
@@ -50,12 +50,14 @@ export class Capsu {
    * @param op 
    * @returns 
    */
-  public of<T>(key: string, op: Partial<CacheKeyOptions> = {}): SingleCacher<T> {
+  public of<T>(key: string, op: Partial<CacheKeyOptions>): SingleCacher<T>
+  public of<T>(key: string, op: Partial<CacheKeyOptions>, resolver: () => Promise<T>): Promise<T>
+  public of<T>(key: string, op: Partial<CacheKeyOptions> = {}, rawResolver?: (() => Promise<T>)): SingleCacher<T> | Promise<T> {
     const opts: CacheKeyOptions = {
       ttl: op.ttl || this.defaultTtlInMs,
     }
     const concreteKey = `${this.prefix}:${key}`
-    return async (resolver) => {
+    const _doResolve = async (resolver: () => Promise<T>): Promise<T> => {
       const cached = this.storage.get(concreteKey)
       if (!isNil(cached)) {
         return cached
@@ -69,6 +71,12 @@ export class Capsu {
       this.storage.set(concreteKey, toCache, new Date().getTime() + opts.ttl)
       return toCache
     }
+    // In case of rawResolver is given.
+    if (rawResolver) {
+      return _doResolve(rawResolver)
+    }
+    // Otherwise return a callable interface to be used.
+    return _doResolve
   }
 
   /**
@@ -78,14 +86,17 @@ export class Capsu {
    * @param op
    * @returns cache proxy object.
    */
-  public listOf<S, R>(prefix: string, op: Partial<CacheKeyManyOptions<S, R>> = {}): IterableCacher<S, R> {
+  public listOf<S, R>(prefix: string, op: Partial<CacheKeyManyOptions<S, R>>): ListCacher<S, R>
+  public listOf<S, R>(prefix: string, op: Partial<CacheKeyManyOptions<S, R>>, source: S[], rawResolver: ((missedSource: S[], missedKeys: string[]) => Promise<R[]>)): Promise<R[]>
+  public listOf<S, R>(prefix: string, op: Partial<CacheKeyManyOptions<S, R>> = {}, source?: S[], rawResolver?: ((missedSource: S[], missedKeys: string[]) => Promise<R[]>)): ListCacher<S, R> | Promise<R[]> {
     const concreteKeyPrefix = `${this.prefix}:${prefix}`
     const opts: CacheKeyManyOptions<S, R> = {
       ttl: op.ttl || this.defaultTtlInMs,
       cacheKey: op.cacheKey || ((k: any) => `${k}`),
       resultKey: op.resultKey || ((r: R) => r && `${(r as any)['id']}`)
     }
-    return async (source, resolve) => {
+
+    const _doResolve = async (source: S[], resolve: (missedSource: S[], missedKeys: string[]) => Promise<R[]>): Promise<R[]> => {
       const result = new Array<R>(source.length)
       const missedKeys: string[] = []
       const missedKeyToIndex: { [key: string]: number } = {}
@@ -146,5 +157,10 @@ export class Capsu {
       }
       return result
     }
+
+    if (rawResolver) {
+      return _doResolve(source, rawResolver)
+    }
+    return _doResolve
   }
 }

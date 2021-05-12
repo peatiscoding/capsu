@@ -2,13 +2,27 @@
 
 Capsu - caching framework to use with.
 
+## Install
+
+```bash
+yarn add capsu
+```
+
+or 
+
+```bash
+npm i --save capsu
+```
+
 ## Usage
 
-UseCase1: `keyOf`
+UseCase1: `of`
+
+Create a function wrapper to wrap around certain async function to capture result value, and capture input values as a cached key.
 
 ```ts
 const capsu = new Capsu() // create in-memory-cache
-const once = capsu.keyOf(`some-key`, { ttl: 120 }) // save the result in `some-key` for 120 seconds.
+const once = capsu.of(`some-key`, { ttl: 120 }) // save the result in `some-key` for 120 seconds.
 
 // Your existing function
 const myAsyncFunction = async (arg1, arg2): Promise<number> => {
@@ -19,13 +33,19 @@ const myAsyncFunction = async (arg1, arg2): Promise<number> => {
 const myAsyncFunction = (arg1, arg2): Promise<number> => once(async () => {
   // no need to update your function!
 })
+
+// Or if your cache key is dynamic you can.
+const myAsyncFunction = (arg1, arg2): Promise<number> => capsu.of(`some-key-${arg1}-${arg2}`, { ttl: 120 }, async () => {
+  // no need to update your function.
+})
+
 ```
 
-UseCase2: `keyOfMany` - saving multiple items in single multiple key stroke
+UseCase2: `listOf` - saving multiple items in single multiple key stroke
 
 ```ts
 const capsu = new Capsu()
-const missed = capsu.keyOfMany(`some-key-prefix`, {
+const missed = capsu.listOf(`some-key-prefix`, {
   ttl: 120,
   inputKey: (data) => data,
   resultKey: (result) => result.id,
