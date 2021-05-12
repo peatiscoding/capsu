@@ -35,14 +35,25 @@ export class Capsu {
 
   constructor(
     private readonly storage: CacheStorage = new InMemoryStorage(),
-    private readonly prefix: string = ''
+    private readonly prefix: string = '',
+    private readonly defaultTtlInMs: number = 2000
   ) {}
 
   public nested(prefix: string): Capsu {
-    return new Capsu(this.storage, `${this.prefix}:${prefix}`)
+    return new Capsu(this.storage, `${this.prefix}:${prefix}`, this.defaultTtlInMs)
   }
 
-  public of<T>(key: string, opts: CacheKeyOptions): SingleCacher<T> {
+  /**
+   * Create cachable object with specific key
+   *
+   * @param key 
+   * @param op 
+   * @returns 
+   */
+  public of<T>(key: string, op: Partial<CacheKeyOptions> = {}): SingleCacher<T> {
+    const opts: CacheKeyOptions = {
+      ttl: op.ttl || this.defaultTtlInMs,
+    }
     const concreteKey = `${this.prefix}:${key}`
     return async (resolver) => {
       const cached = this.storage.get(concreteKey)
@@ -60,8 +71,20 @@ export class Capsu {
     }
   }
 
-  public listOf<S, R>(prefix: string, opts: CacheKeyManyOptions<S, R>): IterableCacher<S, R> {
+  /**
+   * Create a listOf cachable proxy object.
+   *
+   * @param prefix
+   * @param op
+   * @returns cache proxy object.
+   */
+  public listOf<S, R>(prefix: string, op: Partial<CacheKeyManyOptions<S, R>> = {}): IterableCacher<S, R> {
     const concreteKeyPrefix = `${this.prefix}:${prefix}`
+    const opts: CacheKeyManyOptions<S, R> = {
+      ttl: op.ttl || this.defaultTtlInMs,
+      cacheKey: op.cacheKey || ((k: any) => `${k}`),
+      resultKey: op.resultKey || ((r: R) => r && `${(r as any)['id']}`)
+    }
     return async (source, resolve) => {
       const result = new Array<R>(source.length)
       const missedKeys: string[] = []
