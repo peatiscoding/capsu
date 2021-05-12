@@ -87,8 +87,8 @@ export class Capsu {
    * @returns cache proxy object.
    */
   public listOf<S, R>(prefix: string, op: Partial<CacheKeyManyOptions<S, R>>): ListCacher<S, R>
-  public listOf<S, R>(prefix: string, op: Partial<CacheKeyManyOptions<S, R>>, source: S[], rawResolver: ((missedSource: S[], missedKeys: string[]) => Promise<R[]>)): Promise<R[]>
-  public listOf<S, R>(prefix: string, op: Partial<CacheKeyManyOptions<S, R>> = {}, source?: S[], rawResolver?: ((missedSource: S[], missedKeys: string[]) => Promise<R[]>)): ListCacher<S, R> | Promise<R[]> {
+  public listOf<S, R>(prefix: string, op: Partial<CacheKeyManyOptions<S, R>>, src: S[], rawResolver: ((missedSource: S[], missedKeys: string[]) => Promise<R[]>)): Promise<R[]>
+  public listOf<S, R>(prefix: string, op: Partial<CacheKeyManyOptions<S, R>> = {}, src?: S[], rawResolver?: ((missedSource: S[], missedKeys: string[]) => Promise<R[]>)): ListCacher<S, R> | Promise<R[]> {
     const concreteKeyPrefix = `${this.prefix}:${prefix}`
     const opts: CacheKeyManyOptions<S, R> = {
       ttl: op.ttl || this.defaultTtlInMs,
@@ -158,8 +158,8 @@ export class Capsu {
       return result
     }
 
-    if (rawResolver) {
-      return _doResolve(source, rawResolver)
+    if (rawResolver && src) {
+      return _doResolve(src, rawResolver)
     }
     return _doResolve
   }
