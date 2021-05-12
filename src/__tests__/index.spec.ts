@@ -5,7 +5,7 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 describe('in-memory cache', () => {
   const capsu = new Capsu()
-  describe('of command', () => {
+  describe('using "of" command', () => {
     it('Can cache Promise<object>', async () => {
       const keyed = capsu.of('G', { ttl: 20 })
       const first = await keyed(async () => Math.random())
@@ -31,15 +31,16 @@ describe('in-memory cache', () => {
     })
   })
 
-  describe('listOf command', () => {
-    it('Can cache Promise<byId>', async () => {
+  describe('using "listOf" command', () => {
+    it('Can cache Promise<[id]>', async () => {
       const listKeyed = capsu.listOf<string, string>('L1', {
-        cacheKey: (id) => id,
-        resultKey: (result) => result.toLowerCase(),
+        cacheKey: (id) => id, // transform incoming source to cachable key
+        resultKey: (result) => result.toLowerCase(), // transform result to cachable key
         ttl: 20,
       })
       const result = await listKeyed(['a', 'b', 'c'], async (missedSource) => {
         expect(missedSource).toEqual(['a', 'b', 'c'])
+        await delay(2)
         return missedSource.map((o) => o.toUpperCase())
       })
       expect(result).toEqual(['A', 'B', 'C'])
@@ -47,6 +48,7 @@ describe('in-memory cache', () => {
       let called = 0
       const result2 = await listKeyed(['a', 'b', 'c'], async (missedSource) => {
         called = called + 1
+        await delay(2)
         return missedSource.map((o) => o.toUpperCase())
       })
       expect(called).toEqual(0)
@@ -54,11 +56,13 @@ describe('in-memory cache', () => {
 
       const result3 = await listKeyed(['d', 'f', 'c'], async (missedSource) => {
         expect(missedSource).toEqual(['d', 'f'])
+        await delay(5)
         return missedSource.map((o) => o.toUpperCase())
       })
       expect(result3).toEqual(['D', 'F', 'C'])
-    
-      await delay(15)
+  
+      // wait for all cached entries to expire
+      await delay(20)
 
       const result4 = await listKeyed(['a', 'f', 'b', 'c'], async (missedSource) => {
         expect(missedSource).toEqual(['a', 'f', 'b', 'c'])
