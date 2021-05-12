@@ -6,7 +6,7 @@
   "module": "lib/esm/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.esm.json && tsc -p tsconfig.cjs.json",
-    "clean": "rm -rf node_modules/ && rm -rf libs/",
+    "clean": "rm -rf node_modules/ && rm -rf lib/",
     "test": "jest src/__tests__/"
   },
   "repository": {

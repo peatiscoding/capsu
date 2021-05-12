@@ -7,10 +7,9 @@
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "declaration": true,
-    "strict": true,
     "target": "es2017",
     "outDir": "./lib/esm"
   },
   "include": ["src"],
-  "exclude": ["node_modules", "src/__tests__"]
+  "exclude": ["node_modules"]
 }
