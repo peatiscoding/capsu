@@ -1,12 +1,43 @@
-export interface CacheStorage {
-  canCachePromise(): boolean
-  get(key: string): Promise<any | undefined> | any | undefined
-  set(key: string, value: any, exp: number): void
+export interface BaseCacheStorage {
+
+  /**
+   * In case of using in-memory cache; this will increasingly handle cache mechanic
+   * by saving actual promise value in to this storage.
+   */
+   canCachePromise(): boolean
+  
+   /**
+    * 
+    * @param key 
+    * @param value 
+    * @param exp 
+    */
+   set(key: string, value: any, exp: number): void
 }
 
-export class InMemoryStorage implements CacheStorage {
+export interface PromiseCacheStorage extends BaseCacheStorage {
+  queryWithPromise: true
+
+  get(key: string): Promise<any | undefined>
+}
+
+export interface StaticCacheStorage extends BaseCacheStorage {
+  queryWithPromise: false
+
+  /**
+   * @param key 
+   */
+  get(key: string): any | undefined
+
+}
+
+export type CacheStorage = PromiseCacheStorage | StaticCacheStorage
+
+export class InMemoryStorage implements StaticCacheStorage {
 
   public store: { [key: string]: { value: Promise<any> | any, exp: number } } = {}
+
+  queryWithPromise: false
 
   canCachePromise() {
     return true
@@ -83,7 +114,13 @@ export class Capsu {
     }
     const concreteKey = `${this.prefix}:${key}`
     const _doResolve = async (resolver: () => Promise<T>): Promise<T> => {
-      const cached = this.storage.get(concreteKey)
+      // If storage use promise to get. Then the result would be promise based.
+      let cached = undefined
+      if (this.storage.queryWithPromise) {
+        cached = await this.storage.get(concreteKey)
+      } else {
+        cached = this.storage.get(concreteKey)
+      }
       if (!isNil(cached)) {
         return cached
       }
