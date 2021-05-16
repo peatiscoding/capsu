@@ -192,7 +192,6 @@ export class Capsu {
         // If this is cachable result.
         if (toCacheList.then && this.storage.canCachePromise()) {
           const exp = new Date().getTime() + opts.ttl
-          const toWait: Promise<void>[] = []
           // for any missed key create a promise to update `result` object.
           for (const src of missedSources) {
             const key = opts.cacheKey(src)
