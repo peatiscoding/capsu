@@ -48,6 +48,9 @@ export class InMemoryStorage implements StaticCacheStorage {
     if (!found || found.exp < new Date().getTime()) {
       return undefined
     }
+    if (found.exp < new Date().getTime()) {
+      return 'expired'
+    }
     return found.value
   }
 
@@ -168,8 +171,11 @@ export class Capsu {
       for (let index = 0; index < source.length; index += 1) {
         const src = source[index]
         const key = opts.cacheKey(src)
-        const cached = await this.storage.get(`${concreteKeyPrefix}:${key}`)
-        if (!isNil(cached)) {
+        let cached: any = this.storage.get(`${concreteKeyPrefix}:${key}`)
+        if (this.storage.queryWithPromise) {
+          cached = await cached
+        }
+        if (!isNil(cached) || (cached && cached.then)) {
           result[index] = cached
           continue
         }
@@ -187,6 +193,7 @@ export class Capsu {
         if (toCacheList.then && this.storage.canCachePromise()) {
           const exp = new Date().getTime() + opts.ttl
           const toWait: Promise<void>[] = []
+          // for any missed key create a promise to update `result` object.
           for (const src of missedSources) {
             const key = opts.cacheKey(src)
             const index = missedKeyToIndex[key]
@@ -201,9 +208,8 @@ export class Capsu {
               toCache,
               exp,
             )
-            toWait.push(toCache)
+            result[index] = toCache
           }
-          await Promise.all(toWait)
         } else {
           const resolved = await toCacheList
           const exp = new Date().getTime() + opts.ttl
@@ -217,7 +223,7 @@ export class Capsu {
           }
         }
       }
-      return result
+      return Promise.all(result)
     }
 
     if (rawResolver && src) {

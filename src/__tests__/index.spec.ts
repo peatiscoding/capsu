@@ -141,9 +141,57 @@ describe('in-memory cache', () => {
       expect(result4).toEqual(['A', 'F', 'B', 'C'])
     })
 
+    it('Can cache pending items simulataneously', async () => {
+      const listKeyed = capsu.listOf<string, string>('promise-all-cache-ds', {
+        cacheKey: (id) => `${id}`.toLowerCase(), // transform incoming source to cachable key
+        resultKey: (result) => result.toLowerCase(), // transform result to cachable key
+        ttl: 20,
+      })
+
+      let aCalled = false
+      let bCalled = false
+      let cCalled = false
+      const resolveA = () => listKeyed(['a', 'b', 'c'], async (missedSource) => {
+        aCalled = true
+        expect(missedSource).toEqual(['a', 'b', 'c'])
+        await delay(2)
+        return missedSource.map((o) => o.toUpperCase())
+      })
+      const resolveB = () => listKeyed(['b', 'c'], async (missedSource) => {
+        bCalled = true
+        await delay(2)
+        return missedSource.map((o) => o.toUpperCase())
+      })
+      const resolveC = () => listKeyed(['b', 'c', 'f', 'j'], async (missedSource) => {
+        cCalled = true
+        expect(missedSource).toEqual(['f', 'j'])
+        await delay(2)
+        return missedSource.map((o) => o.toUpperCase())
+      })
+
+      // execute!
+      const [
+        resultA,
+        resultB,
+        resultC,
+      ] = await Promise.all([
+        resolveA(),
+        resolveB(),
+        resolveC(),
+      ])
+
+      expect(resultA).toEqual(['A', 'B', 'C'])
+      expect(resultB).toEqual(['B', 'C'])
+      expect(resultC).toEqual(['B', 'C', 'F', 'J'])
+      expect(aCalled).toBeTruthy()
+      expect(bCalled).toBeFalsy()
+      expect(cCalled).toBeTruthy()
+    })
+
     it('Can define a callable interface using 4th arg', async () => {
       let lastCached: string[] = []
-      const callMe = (source: string[]) => capsu.listOf('X', { ttl: 10, cacheKey: (o) => o, resultKey: (r) => `${r}`.toLowerCase() }, source, async (missed) => {
+      const callMe = (source: string[]) => capsu.listOf('forth-arg-simple', { ttl: 10, cacheKey: (o) => o, resultKey: (r) => `${r}`.toLowerCase() }, source, async (missed) => {
+        delay(1)
         lastCached = [...missed]
         return missed.map((k) => k.toUpperCase())
       })
@@ -291,6 +339,7 @@ describe('promised-based storage cache', () => {
       let lastCached: string[] = []
       const callMe = (source: string[]) => capsu.listOf('X', { ttl: 10, cacheKey: (o) => o, resultKey: (r) => `${r}`.toLowerCase() }, source, async (missed) => {
         lastCached = [...missed]
+        await delay(1)
         return missed.map((k) => k.toUpperCase())
       })
 
@@ -304,7 +353,7 @@ describe('promised-based storage cache', () => {
 
       res = await callMe(['d', 'f', 'c'])
       expect(res).toEqual(['D', 'F', 'C'])
-      expect(lastCached).toEqual(['f'])
+      expect(lastCached).toEqual(['f', 'c'])
     })
   })
 })
