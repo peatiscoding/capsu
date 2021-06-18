@@ -1,4 +1,4 @@
-import { Capsu, InMemoryStorage } from ".."
+import { Capsu, InMemoryStorage } from "../src"
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -351,9 +351,11 @@ describe('promised-based storage cache', () => {
       expect(res).toEqual(['D', 'E', 'C'])
       expect(lastCached).toEqual(['d' ,'e'])
 
+      await delay(3)
+
       res = await callMe(['d', 'f', 'c'])
       expect(res).toEqual(['D', 'F', 'C'])
-      expect(lastCached).toEqual(['f'])
+      expect(lastCached).toEqual(['f', 'c'])
     })
   })
 })
