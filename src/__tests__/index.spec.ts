@@ -353,7 +353,7 @@ describe('promised-based storage cache', () => {
 
       res = await callMe(['d', 'f', 'c'])
       expect(res).toEqual(['D', 'F', 'C'])
-      expect(lastCached).toEqual(['f', 'c'])
+      expect(lastCached).toEqual(['f'])
     })
   })
 })
