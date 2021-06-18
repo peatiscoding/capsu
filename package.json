@@ -1,6 +1,6 @@
 {
   "name": "capsu",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Caching framework",
   "main": "lib/cjs/index.js",
   "module": "lib/esm/index.js",
@@ -29,6 +29,6 @@
     "jest": "^26.6.3",
     "ts-jest": "^26.5.6",
     "ts-node": "^9.1.1",
-    "typescript": "^3.8"
+    "typescript": "^4"
   }
 }
