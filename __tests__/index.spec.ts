@@ -47,6 +47,34 @@ describe('in-memory cache', () => {
       expect(r1).toEqual(r5)
     })
 
+    it('will not cache the resolved as error promisified object', async () => {
+      const keyed = capsu.of('ErrorPromised', { ttl: 20 })
+      let calledCount = 0
+      const callMe = () => keyed(async () => {
+        await delay(1)
+        calledCount = calledCount + 1
+        throw new Error('this should not be cached')
+      })
+      const [r1, r2, r3] = await Promise.allSettled([
+        callMe(),
+        callMe(),
+        callMe(),
+      ])
+      expect(calledCount).toEqual(1)
+      expect(r1.status).toEqual('rejected')
+      expect(r2.status).toEqual('rejected')
+      expect(r3.status).toEqual('rejected')
+
+      // second call
+      const [r4, r5] = await Promise.allSettled([
+        callMe(),
+        callMe(),
+      ])
+      expect(calledCount).toEqual(2)
+      expect(r4.status).toEqual('rejected')
+      expect(r5.status).toEqual('rejected')
+    })
+
     it('Can handle caching same non-promisified object with same key race condition', async () => {
       const keyed = capsu.of('racecond_no_promise', { ttl: 20 })
       let calledCount = 0

@@ -130,6 +130,13 @@ export class Capsu {
       if (this.storage.canCachePromise()) {
         const toCache = resolver()
         this.storage.set(concreteKey, toCache, new Date().getTime() + opts.ttl)
+        if (toCache.catch) {
+          toCache.catch((e) => {
+            // invalidate the cache if the value has failed to resolved.
+            this.storage.set(concreteKey, null, 0)
+            return e
+          })
+        }
         return toCache
       }
       const toCache = await resolver()

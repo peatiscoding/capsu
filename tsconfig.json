@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "lib": ["es2017"],
+    "lib": ["esnext"],
     "moduleResolution": "node",
     "noUnusedLocals": true,
     "sourceMap": true,
