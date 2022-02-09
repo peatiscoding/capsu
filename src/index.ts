@@ -57,6 +57,45 @@ export class InMemoryStorage implements StaticCacheStorage {
   set(key: string, value: any | Promise<any>, exp: number) {
     this.store[key] = { value, exp }
   }
+
+  /**
+   * Call this method to purge all expired cache objects.
+   */
+  purge() {
+    const now = new Date().getTime()
+    const isExpired: (o: { exp: number }) => boolean = (o) => {
+      return o.exp < now
+    }
+    for(const k of Object.keys(this.store)) {
+      const c = this.store[k]
+      if (isExpired(c)) {
+        delete this.store[k]
+      }
+    }
+  }
+
+  /**
+   * Return cached keys.
+   * 
+   * @returns 
+   */
+  cachedCount() {
+    return Object.keys(this.store).length
+  }
+
+  /**
+   * Automatically purge itself every 30 minutes (default)
+   * 
+   * @returns callback method to release this setInterval object.
+   */
+  autoPurge(purgeIntervalInMs: number = 1000 * 60 * 30): () => void {
+    const handle = setInterval(() => {
+      this.purge()
+    }, purgeIntervalInMs)
+    return () => {
+      clearInterval(handle)
+    }
+  }
 }
 
 

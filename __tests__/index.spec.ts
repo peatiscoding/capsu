@@ -237,6 +237,81 @@ describe('in-memory cache', () => {
       expect(lastCached).toEqual(['f'])
     })
   })
+  
+  describe('using autoPurge InMemoryStore', () => {
+    const normalStorage = new InMemoryStorage()
+    const autoPurgeStorage = new InMemoryStorage() 
+    let freeHandler!: () => void
+
+    const normalCapsu = new Capsu(normalStorage)
+    const autoPurgeCapsu = new Capsu(autoPurgeStorage)
+
+    beforeAll(() => {
+      freeHandler = autoPurgeStorage.autoPurge(7) // automatically purge every 7ms.
+    })
+
+    afterAll(() => {
+      freeHandler()
+    })
+
+    it('will automatically free memory by remove expired items.', async () => {
+      const normalKey = normalCapsu.of('some-key', { ttl: 12 }) // for 12ms.
+      const autoPurgeKey = autoPurgeCapsu.of('some-key', { ttl: 12 }) // for 12ms.
+      const expectedVal = 'some-random-string'
+      let normalResolveCount = 0
+      let autoPurgeResolveCount = 0
+      const normalResolver = async () => {
+        normalResolveCount = normalResolveCount + 1 
+        return expectedVal
+      }
+      const autoPurgeResolver = async () => {
+        autoPurgeResolveCount = autoPurgeResolveCount + 1
+        return expectedVal
+      }
+
+      // nothing being cached yet
+      expect(normalStorage.cachedCount()).toEqual(0)
+      expect(autoPurgeStorage.cachedCount()).toEqual(0)
+      expect(normalResolveCount).toEqual(0)
+      expect(autoPurgeResolveCount).toEqual(0)
+
+      // Calling it for the first time.
+      const normalVal = await normalKey(normalResolver)
+      const autoPurgeVal = await autoPurgeKey(autoPurgeResolver)
+      expect(normalVal).toEqual(expectedVal)
+      expect(autoPurgeVal).toEqual(expectedVal)
+      expect(normalStorage.cachedCount()).toEqual(1)
+      expect(autoPurgeStorage.cachedCount()).toEqual(1)
+      expect(normalResolveCount).toEqual(1)
+      expect(autoPurgeResolveCount).toEqual(1)
+
+      // Calling it for second time it will still behave just the same
+      const normalVal2 = await normalKey(normalResolver)
+      const autoPurgeVal2 = await autoPurgeKey(autoPurgeResolver)
+      expect(normalVal2).toEqual(expectedVal)
+      expect(autoPurgeVal2).toEqual(expectedVal)
+      expect(normalStorage.cachedCount()).toEqual(1)
+      expect(autoPurgeStorage.cachedCount()).toEqual(1)
+      expect(normalResolveCount).toEqual(1)
+      expect(autoPurgeResolveCount).toEqual(1)
+
+      // wait for 9ms. (at this time autoPurge probably kicked in.)
+      // Cache is still consider as not yet expired. Count should still correct.
+      await delay(9)
+      expect(normalStorage.cachedCount()).toEqual(1)
+      expect(autoPurgeStorage.cachedCount()).toEqual(1)
+      expect(normalResolveCount).toEqual(1)
+      expect(autoPurgeResolveCount).toEqual(1)
+
+      // wait for 20 ms.
+      // Cache is now considered as Expired. Count should now be reduced.
+      await delay(20)
+      expect(normalStorage.cachedCount()).toEqual(1)
+      expect(autoPurgeStorage.cachedCount()).toEqual(0)
+      expect(normalResolveCount).toEqual(1)
+      expect(autoPurgeResolveCount).toEqual(1)
+    })
+  })
 })
 
 describe('promised-based storage cache', () => {
