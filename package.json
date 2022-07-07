@@ -4,6 +4,10 @@
   "description": "Caching framework",
   "main": "lib/cjs/index.js",
   "module": "lib/esm/index.js",
+  "typings": "lib/esm.index.d.ts",
+  "files": [
+    "lib"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.cjs.json",
     "clean": "rm -rf node_modules/ && rm -rf lib/",
